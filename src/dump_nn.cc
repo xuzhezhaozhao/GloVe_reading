@@ -289,8 +289,9 @@ void query_nn(const std::string& query, int k,
               std::vector<std::pair<real, std::string>>& nn) {
   std::unordered_set<std::string> banSet;
   banSet.insert(query);
-  int vocab_size = matrix->n_;
-  Vector queryVec(vocab_size);
+  int vocab_size = matrix->m_;
+  int dim = matrix->n_;
+  Vector queryVec(dim);
   auto it = word2idx.find(query);
   int idx = 0;
   if (it != word2idx.end()) {
@@ -302,10 +303,10 @@ void query_nn(const std::string& query, int k,
   queryVec.zero();
   queryVec.addRow(*matrix, idx);
 
-  Vector output(matrix->m_);
+  Vector output(vocab_size);
   output.mul(*matrix, queryVec);
 
-  std::vector<std::pair<real, int>> heap(matrix->n_);
+  std::vector<std::pair<real, int>> heap(vocab_size);
   for (int32_t i = 0; i < vocab_size; i++) {
     heap[i].first = output[i];
     heap[i].second = i;

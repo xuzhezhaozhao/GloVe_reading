@@ -212,8 +212,9 @@ void LoadVectors(std::string filename) {
 
 void findNN(const std::string& queryWord, int k,
             const std::unordered_set<std::string>& banSet) {
-  int vocab_size = matrix->n_;
-  Vector queryVec(vocab_size);
+  int vocab_size = matrix->m_;
+  int dim = matrix->n_;
+  Vector queryVec(dim);
   auto it = word2idx.find(queryWord);
   int idx = 0;
   if (it != word2idx.end()) {
@@ -225,10 +226,10 @@ void findNN(const std::string& queryWord, int k,
   queryVec.zero();
   queryVec.addRow(*matrix, idx);
 
-  Vector output(matrix->m_);
+  Vector output(vocab_size);
   output.mul(*matrix, queryVec);
 
-  std::vector<std::pair<real, int>> heap(matrix->n_);
+  std::vector<std::pair<real, int>> heap(vocab_size);
   for (int32_t i = 0; i < vocab_size; i++) {
     heap[i].first = output[i];
     heap[i].second = i;
