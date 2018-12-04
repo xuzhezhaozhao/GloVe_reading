@@ -7,7 +7,7 @@ CXXFLAGS = -std=c++11 -lm -pthread -Ofast -march=native -funroll-loops -Wall -We
 BUILDDIR := build
 SRCDIR := src
 
-all: dir glove shuffle cooccur vocab_count query_nn
+all: dir glove shuffle cooccur vocab_count query_nn dump_nn
 
 dir :
 	mkdir -p $(BUILDDIR)
@@ -21,6 +21,8 @@ vocab_count : $(SRCDIR)/vocab_count.c
 	$(CC) $(SRCDIR)/vocab_count.c -o $(BUILDDIR)/vocab_count $(CFLAGS)
 query_nn : $(SRCDIR)/query_nn.cc
 	${CXX} ${SRCDIR}/query_nn.cc -o ${BUILDDIR}/query_nn $(CXXFLAGS)
+dump_nn : $(SRCDIR)/dump_nn.cc
+	${CXX} ${SRCDIR}/dump_nn.cc -o ${BUILDDIR}/dump_nn $(CXXFLAGS)
 
 clean:
-	rm -rf glove shuffle cooccur vocab_count query_nn build
+	rm -rf glove shuffle cooccur vocab_count query_nn dump_nn build
