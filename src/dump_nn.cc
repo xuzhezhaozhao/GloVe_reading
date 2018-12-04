@@ -196,7 +196,7 @@ void LoadVectors(std::string filename) {
   std::getline(ifs, line);
   auto tokens = Split(line, ' ');
   assert(tokens.size() == 2);
-  vocab_size = std::stoi(tokens[0]);
+  vocab_size = std::stoi(tokens[0]) + 1; // add <unk>
   dim = std::stoi(tokens[1]);
   assert(dim > 0);
   assert(vocab_size > 0);
@@ -225,8 +225,8 @@ void findNN(const std::string& queryWord, int k,
   if (it != word2idx.end()) {
     idx = it->second;
   } else {
-    std::cout << "not in dict" << std::endl;
-    return;
+    std::cout << queryWord << " not in dict" << std::endl;
+    exit(-1);
   }
   queryVec.zero();
   queryVec.addRow(*matrix, idx);

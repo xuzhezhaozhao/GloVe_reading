@@ -190,7 +190,7 @@ void LoadVectors(std::string filename) {
   std::getline(ifs, line);
   auto tokens = Split(line, ' ');
   assert(tokens.size() == 2);
-  vocab_size = std::stoi(tokens[0]);
+  vocab_size = std::stoi(tokens[0]) + 1;  // add <unk>
   dim = std::stoi(tokens[1]);
   assert(dim > 0);
   assert(vocab_size > 0);
