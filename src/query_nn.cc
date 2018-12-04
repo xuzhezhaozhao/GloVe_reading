@@ -175,7 +175,7 @@ class Vector {
 };
 
 std::vector<std::string> dict;
-std::map<std::string, size_t> word2idx;
+std::map<std::string, int> word2idx;
 std::shared_ptr<Matrix> matrix;
 
 void LoadVectors(std::string filename) {
@@ -212,7 +212,8 @@ void LoadVectors(std::string filename) {
 
 void findNN(const std::string& queryWord, int k,
             const std::unordered_set<std::string>& banSet) {
-  Vector queryVec(matrix->n_);
+  int vocab_size = matrix->n_;
+  Vector queryVec(vocab_size);
   auto it = word2idx.find(queryWord);
   int idx = 0;
   if (it != word2idx.end()) {
@@ -227,9 +228,8 @@ void findNN(const std::string& queryWord, int k,
   Vector output(matrix->m_);
   output.mul(*matrix, queryVec);
 
-  int sz = matrix->n_;
   std::vector<std::pair<real, int>> heap(matrix->n_);
-  for (int32_t i = 0; i < sz; i++) {
+  for (int32_t i = 0; i < vocab_size; i++) {
     heap[i].first = output[i];
     heap[i].second = i;
   }
@@ -255,7 +255,7 @@ void findNN(const std::string& queryWord, int k,
   }
 }
 
-void query(int k) {
+void query_nn(int k) {
   std::string queryWord;
   std::unordered_set<std::string> banSet;
   std::cout << "query: ";
@@ -277,13 +277,13 @@ int main(int argc, char* argv[]) {
   std::cout << "Load vectors done." << std::endl;
 
   std::string mode = std::string(argv[2]);
-  if (mode == "query") {
+  if (mode == "nn") {
     if (argc < 4) {
-      std::cout << "Query Usage: <vectors_file> query <k>" << std::endl;
+      std::cout << "Query Usage: <vectors_file> nn <k>" << std::endl;
       exit(-1);
     }
     int k = std::stoi(argv[3]);
-    query(k);
+    query_nn(k);
   } else if (mode == "dump") {
   }
   return 0;
