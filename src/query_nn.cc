@@ -1,10 +1,17 @@
 #include <assert.h>
+#include <assert.h>
+#include <stdlib.h>
+#include <string.h>
 #include <fstream>
 #include <iostream>
-#include <random>
-#include <string>
-#include <vector>
 #include <memory>
+#include <random>
+#include <set>
+#include <string>
+#include <unordered_set>
+#include <vector>
+#include <map>
+#include <algorithm>
 
 static std::vector<std::string> Split(const std::string& s, char sep = ' ') {
   std::vector<std::string> result;
@@ -31,6 +38,7 @@ static void CheckStream(const std::ifstream& ifs) {
 }
 
 typedef float real;
+
 class Matrix {
  public:
   real* data_;
@@ -114,7 +122,60 @@ class Matrix {
   }
 };
 
+class Vector {
+ public:
+  int64_t m_;
+  real* data_;
+
+  explicit Vector(int64_t m) {
+    m_ = m;
+    data_ = new real[m];
+  }
+  Vector& operator=(const Vector& source) {
+    delete[] data_;
+    m_ = source.m_;
+
+    data_ = new real[m_];
+
+    for (int i = 0; i < m_; ++i) {
+      data_[i] = source.data_[i];
+    }
+
+    return *this;
+  }
+
+  Vector(const Vector&) = delete;
+
+  ~Vector() { delete[] data_; }
+
+  real& operator[](int64_t i) { return data_[i]; }
+  const real& operator[](int64_t i) const { return data_[i]; }
+
+  int64_t size() const { return m_; }
+  void zero() { memset(data_, 0, sizeof(real) * m_); }
+  void addRow(const Matrix& A, int64_t i) {
+    assert(i >= 0);
+    assert(i < A.m_);
+    assert(m_ == A.n_);
+    for (int64_t j = 0; j < A.n_; j++) {
+      data_[j] += A.at(i, j);
+    }
+  }
+  void mul(const Matrix& A, const Vector& vec) {
+    assert(A.m_ == m_);
+    assert(A.n_ == vec.m_);
+    for (int64_t i = 0; i < m_; i++) {
+      real d = 0.0;
+      for (int64_t j = 0; j < A.n_; j++) {
+        d += A.at(i, j) * vec.data_[j];
+      }
+      data_[i] = d;
+    }
+  }
+};
+
 std::vector<std::string> dict;
+std::map<std::string, size_t> word2idx;
 std::shared_ptr<Matrix> matrix;
 
 void LoadVectors(std::string filename) {
@@ -140,6 +201,7 @@ void LoadVectors(std::string filename) {
     CheckStream(ifs);
     auto tokens = Split(line, ' ');
     assert((int)tokens.size() == dim + 1);
+    word2idx[tokens[0]] = dict.size();
     dict.push_back(tokens[0]);
     for (int j = 0; j < dim; ++j) {
       matrix->at(i, j) = std::stof(tokens[j + 1]);
@@ -148,14 +210,81 @@ void LoadVectors(std::string filename) {
   matrix->normlize();
 }
 
+void findNN(const std::string& queryWord, int k,
+            const std::unordered_set<std::string>& banSet) {
+  Vector queryVec(matrix->n_);
+  auto it = word2idx.find(queryWord);
+  int idx = 0;
+  if (it != word2idx.end()) {
+    idx = it->second;
+  } else {
+    std::cout << "not in dict" << std::endl;
+    return;
+  }
+  queryVec.zero();
+  queryVec.addRow(*matrix, idx);
+
+  Vector output(matrix->m_);
+  output.mul(*matrix, queryVec);
+
+  int sz = matrix->n_;
+  std::vector<std::pair<real, int>> heap(matrix->n_);
+  for (int32_t i = 0; i < sz; i++) {
+    heap[i].first = output[i];
+    heap[i].second = i;
+  }
+  std::make_heap(heap.begin(), heap.end());
+
+  int32_t i = 0;
+  size_t poped = 0;
+  std::vector<std::pair<real, std::string>> nn;
+  while (i < k && heap.size() > 0) {
+    auto& top = heap.front();
+    std::string word;
+    word = dict[top.second];
+    auto it = banSet.find(word);
+    if (it == banSet.end()) {
+      nn.push_back({top.first, word});
+      i++;
+    }
+    pop_heap(heap.begin(), heap.end() - poped);
+    ++poped;
+  }
+  for (auto p : nn) {
+    std::cout << p.second << ": " << p.first << std::endl;
+  }
+}
+
+void query(int k) {
+  std::string queryWord;
+  std::unordered_set<std::string> banSet;
+  std::cout << "query: ";
+  while (std::cin >> queryWord) {
+    banSet.clear();
+    banSet.insert(queryWord);
+    findNN(queryWord, k, banSet);
+    std::cout << "query: ";
+  }
+}
+
 int main(int argc, char* argv[]) {
-  if (argc < 2) {
-    std::cout << "Usage: <vectors_file>" << std::endl;
+  if (argc < 3) {
+    std::cout << "Usage: <vectors_file> <mode>" << std::endl;
     exit(-1);
   }
   std::cout << "Loading vectors ..." << std::endl;
   LoadVectors(argv[1]);
   std::cout << "Load vectors done." << std::endl;
 
+  std::string mode = std::string(argv[2]);
+  if (mode == "query") {
+    if (argc < 4) {
+      std::cout << "Query Usage: <vectors_file> query <k>" << std::endl;
+      exit(-1);
+    }
+    int k = std::stoi(argv[3]);
+    query(k);
+  } else if (mode == "dump") {
+  }
   return 0;
 }
