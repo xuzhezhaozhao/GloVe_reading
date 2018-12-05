@@ -48,7 +48,7 @@ typedef struct cooccur_rec_id {
   int word1;
   int word2;
   real val;
-  int id;  /* file index */
+  int id; /* file index */
 } CRECID;
 
 typedef struct hashrec {
@@ -57,7 +57,7 @@ typedef struct hashrec {
   struct hashrec *next;
 } HASHREC;
 
-int verbose = 2;            // 0, 1, or 2
+int verbose = 2;  // 0, 1, or 2
 
 // GloVe 计算共现矩阵时采用的是稠密矩阵+稀疏矩阵这样的混合存储结构。对于词频
 // 大的词，采用稠密矩阵，稀疏词采用稀疏矩阵, max_product 变量控制何时采用稠密
@@ -75,8 +75,8 @@ long long max_product;
 // Number of cooccurrence records whose product exceeds max_product to store in
 // memory before writing to disk
 long long overflow_length;
-int window_size = 15;       // default context window size
-int symmetric = 1;          // 0: asymmetric, 1: symmetric
+int window_size = 15;  // default context window size
+int symmetric = 1;     // 0: asymmetric, 1: symmetric
 
 // soft limit, in gigabytes, used to estimate optimal array sizes
 real memory_limit = 3;
@@ -297,6 +297,8 @@ int merge_write(CRECID new, CRECID *old, FILE *fout) {
   return 1;  // Actually wrote to file
 }
 
+/* 每个 cooccurrence records 文件是根据 word id 排好序的，
+ * 采用优先队列的方式合并所有文件 */
 /* Merge [num] sorted files of cooccurrence records */
 int merge_files(int num) {
   int i, size;
@@ -339,9 +341,8 @@ int merge_files(int num) {
   /* Repeatedly pop top node and fill priority queue until files have reached
    * EOF */
   while (size > 0) {
-    counter += merge_write(
-        pq[0], &old,
-        fout);  // Only count the lines written to file, not duplicates
+    // Only count the lines written to file, not duplicates
+    counter += merge_write(pq[0], &old, fout);
     if ((counter % 100000) == 0)
       if (verbose > 1) fprintf(stderr, "\033[39G%lld lines.", counter);
     i = pq[0].id;
@@ -368,8 +369,8 @@ int merge_files(int num) {
 /* Collect word-word cooccurrence counts from input stream */
 int get_cooccurrence() {
   int flag, x, y, fidcounter = 1;
-  long long a, j = 0, k, id, counter = 0, ind = 0, vocab_size, w1, w2, *lookup,
-               *history;
+  long long a, j = 0, k, id, counter = 0, ind = 0, vocab_size, w1, w2;
+  long long *lookup, *history;
   char format[20], filename[200], str[MAX_STRING_LENGTH + 1];
   FILE *fid, *foverflow;
   real *bigram_table, r;
@@ -387,10 +388,9 @@ int get_cooccurrence() {
   }
   if (verbose > 1) fprintf(stderr, "max product: %lld\n", max_product);
   if (verbose > 1) fprintf(stderr, "overflow length: %lld\n", overflow_length);
-  sprintf(format, "%%%ds %%lld", MAX_STRING_LENGTH);  // Format to read from
-                                                      // vocab file, which has
-                                                      // (irrelevant) frequency
-                                                      // data
+
+  // Format to read from vocab file, which has (irrelevant) frequency data
+  sprintf(format, "%%%ds %%lld", MAX_STRING_LENGTH);
   if (verbose > 1)
     fprintf(stderr, "Reading vocab from file \"%s\"...", vocab_file);
   fid = fopen(vocab_file, "r");
@@ -398,10 +398,10 @@ int get_cooccurrence() {
     fprintf(stderr, "Unable to open vocab file %s.\n", vocab_file);
     return 1;
   }
-  while (fscanf(fid, format, str, &id) != EOF)
-    hashinsert(vocab_hash, str, ++j);  // Here id is not used: inserting vocab
-                                       // words into hash table with their
-                                       // frequency rank, j
+
+  // Here id is not used: inserting vocab words into hash table with their
+  // frequency rank, j
+  while (fscanf(fid, format, str, &id) != EOF) hashinsert(vocab_hash, str, ++j);
   fclose(fid);
   vocab_size = j;
   j = 0;
@@ -414,6 +414,10 @@ int get_cooccurrence() {
     fprintf(stderr, "Couldn't allocate memory!");
     return 1;
   }
+
+  // 前面提到共现矩阵的存储方式是稠密矩阵+稀疏矩阵，依据是两个词 id 的乘积是否
+  // 小于某个阈值；所以原始共现矩阵的每一行都有若干个元素可以用稠密矩阵存储;
+  // lookup 数组存储的是每行稠密元素个数的累积和
   lookup[0] = 1;
   for (a = 1; a <= vocab_size; a++) {
     if ((lookup[a] = max_product / a) < vocab_size)
@@ -424,6 +428,7 @@ int get_cooccurrence() {
   if (verbose > 1)
     fprintf(stderr, "table contains %lld elements.\n", lookup[a - 1]);
 
+  // bigram_table 是稠密矩阵，存储高频词-词共现, 即原始共现矩阵的左上角
   /* Allocate memory for full array which will store all cooccurrence counts for
    * words whose product of frequency ranks is less than max_product */
   bigram_table = (real *)calloc(lookup[a - 1], sizeof(real));
@@ -433,7 +438,6 @@ int get_cooccurrence() {
   }
 
   fid = stdin;
-  // sprintf(format,"%%%ds",MAX_STRING_LENGTH);
   sprintf(filename, "%s_%04d.bin", file_head, fidcounter);
   foverflow = fopen(filename, "wb");
   if (verbose > 1) fprintf(stderr, "Processing token: 0");
@@ -441,9 +445,9 @@ int get_cooccurrence() {
   /* For each token in input stream, calculate a weighted cooccurrence sum
    * within window_size */
   while (1) {
-    if (ind >= overflow_length - window_size) {  // If overflow buffer is
-                                                 // (almost) full, sort it and
-                                                 // write it to temporary file
+    if (ind >= overflow_length - window_size) {
+      // If overflow buffer is (almost) full, sort it and write it to temporary
+      // file.
       qsort(cr, ind, sizeof(CREC), compare_crec);
       write_chunk(cr, ind, foverflow);
       fclose(foverflow);
@@ -474,33 +478,33 @@ int get_cooccurrence() {
       continue;  // Skip out-of-vocabulary words
     }
     w2 = htmp->id;  // Target word (frequency rank)
-    for (k = j - 1; k >= ((j > window_size) ? j - window_size : 0);
-         k--) {  // Iterate over all words to the left of target word, but not
-                 // past beginning of line
+    for (k = j - 1; k >= ((j > window_size) ? j - window_size : 0); k--) {
+      // Iterate over all words to the left of target word, but not past
+      // beginning of line
       w1 = history[k % window_size];  // Context word (frequency rank)
       if (verbose > 2)
         fprintf(stderr, "Adding cooccur between words %lld and %lld.\n", w1,
                 w2);
-      if (w1 < max_product /
-                   w2) {  // Product is small enough to store in a full array
+      if (w1 < max_product / w2) {
+        // Product is small enough to store in a full array
+        // Weight by inverse of distance between words if needed
         bigram_table[lookup[w1 - 1] + w2 - 2] +=
-            distance_weighting
-                ? 1.0 / ((real)(j - k))
-                : 1.0;  // Weight by inverse of distance between words if needed
+            distance_weighting ? 1.0 / ((real)(j - k)) : 1.0;
         if (symmetric > 0)
+          // If symmetric context is used, exchange roles of w2 and w1 (ie look
+          // at right context too)
           bigram_table[lookup[w2 - 1] + w1 - 2] +=
-              distance_weighting ? 1.0 / ((real)(j - k))
-                                 : 1.0;  // If symmetric context is used,
-                                         // exchange roles of w2 and w1 (ie look
-                                         // at right context too)
-      } else {  // Product is too big, data is likely to be sparse. Store these
-                // entries in a temporary buffer to be sorted, merged
-                // (accumulated), and written to file when it gets full.
+              distance_weighting ? 1.0 / ((real)(j - k)) : 1.0;
+      } else {
+        // Product is too big, data is likely to be sparse. Store these
+        // entries in a temporary buffer to be sorted, merged (accumulated),
+        // and written to file when it gets full.
         cr[ind].word1 = w1;
         cr[ind].word2 = w2;
         cr[ind].val = distance_weighting ? 1.0 / ((real)(j - k)) : 1.0;
         ind++;                // Keep track of how full temporary buffer is
-        if (symmetric > 0) {  // Symmetric context
+        if (symmetric > 0) {
+          // Symmetric context
           cr[ind].word1 = w2;
           cr[ind].word2 = w1;
           cr[ind].val = distance_weighting ? 1.0 / ((real)(j - k)) : 1.0;
@@ -508,8 +512,9 @@ int get_cooccurrence() {
         }
       }
     }
-    history[j % window_size] = w2;  // Target word is stored in circular buffer
-                                    // to become context word in the future
+    // Target word is stored in circular buffer to become context word in the
+    // future
+    history[j % window_size] = w2;
     j++;
   }
 
