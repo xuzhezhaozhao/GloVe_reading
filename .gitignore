@@ -1,3 +1,9 @@
+*.bin
+*.dict
+*.result
+text8
+*.txt
+
 # Object files
 *.o
 *.ko
