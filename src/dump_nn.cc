@@ -19,11 +19,12 @@
 #include <unordered_set>
 #include <vector>
 
-static std::vector<std::string> Split(const std::string& s, char sep = ' ') {
+static std::vector<std::string> Split(const std::string& s,
+                                      const std::string& sep = " \t") {
   std::vector<std::string> result;
 
   size_t pos1 = 0;
-  size_t pos2 = s.find(sep);
+  size_t pos2 = s.find_first_of(sep);
   while (std::string::npos != pos2) {
     result.push_back(s.substr(pos1, pos2 - pos1));
 
@@ -194,9 +195,9 @@ void LoadVectors(std::string filename) {
   int vocab_size, dim;
   std::string line;
   std::getline(ifs, line);
-  auto tokens = Split(line, ' ');
+  auto tokens = Split(line);
   assert(tokens.size() == 2);
-  vocab_size = std::stoi(tokens[0]) + 1; // add <unk>
+  vocab_size = std::stoi(tokens[0]) + 1;  // add <unk>
   dim = std::stoi(tokens[1]);
   assert(dim > 0);
   assert(vocab_size > 0);
@@ -205,7 +206,7 @@ void LoadVectors(std::string filename) {
   for (int i = 0; i < vocab_size; ++i) {
     std::getline(ifs, line);
     CheckStream(ifs);
-    auto tokens = Split(line, ' ');
+    auto tokens = Split(line);
     assert((int)tokens.size() == dim + 1);
     word2idx[tokens[0]] = dict.size();
     dict.push_back(tokens[0]);
