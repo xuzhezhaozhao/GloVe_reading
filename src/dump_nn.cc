@@ -27,9 +27,8 @@ static std::vector<std::string> Split(const std::string& s,
   size_t pos2 = s.find_first_of(sep);
   while (std::string::npos != pos2) {
     result.push_back(s.substr(pos1, pos2 - pos1));
-
     pos1 = pos2 + 1;
-    pos2 = s.find(sep, pos1);
+    pos2 = s.find_first_of(sep, pos1);
   }
   if (pos1 != s.length()) {
     result.push_back(s.substr(pos1));
@@ -202,12 +201,21 @@ void LoadVectors(std::string filename) {
   assert(dim > 0);
   assert(vocab_size > 0);
   matrix = std::make_shared<Matrix>(vocab_size, dim);
+  std::cout << "dim = " << dim << std::endl;
+  std::cout << "vocab_size = " << vocab_size << std::endl;
 
   for (int i = 0; i < vocab_size; ++i) {
     std::getline(ifs, line);
+    if (line.empty()) {
+      continue;
+    }
     CheckStream(ifs);
     auto tokens = Split(line);
-    assert((int)tokens.size() == dim + 1);
+    if (tokens.size() != dim + 1) {
+      std::cout << "tokens.size = " << tokens.size() << std::endl;
+      std::cout << "line = " << line << std::endl;
+      exit(-1);
+    }
     word2idx[tokens[0]] = dict.size();
     dict.push_back(tokens[0]);
     for (int j = 0; j < dim; ++j) {
