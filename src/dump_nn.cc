@@ -306,7 +306,7 @@ void query_nn(const std::string& query, int k,
   if (it != word2idx.end()) {
     idx = it->second;
   } else {
-    std::cout << "not in dict" << std::endl;
+    std::cout << "query '" << query << "' not in dict" << std::endl;
     return;
   }
   queryVec.zero();
